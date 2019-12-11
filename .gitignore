@@ -260,7 +260,5 @@ paket-files/
 __pycache__/
 *.pyc
 
-# EasyHook
-
-/pedump/easyhook.h
-/pedump/EasyHook32.lib
+/pedump/Detours
+/pedump/Scylla
