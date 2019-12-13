@@ -7,16 +7,12 @@
 using namespace std;
 
 HANDLE ProcessHandle;
-static VOID (WINAPI* TrueGetSystemTimeAsFileTime)(LPFILETIME lpSystemTimeAsFileTime) = GetSystemTimeAsFileTime;
-
 
 // OEP hook for VC++
 void WINAPI GetSystemTimeAsFileTimeHook(LPFILETIME lpSystemTimeAsFileTime)
 {
-	long long returnAdress = 0;
 	MessageBox(NULL, TEXT("Hooked GetSystemTimeAsFile"), TEXT("pedump"), MB_OK);
 	cmd();
-	GetSystemTimeAsFileTime(lpSystemTimeAsFileTime);
 }
 
 
@@ -225,3 +221,4 @@ extern "C" __declspec(dllexport) void cmd()
 		}
 	}
 }
+		
