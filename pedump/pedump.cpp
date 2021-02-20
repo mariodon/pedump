@@ -8,13 +8,39 @@ using namespace std;
 
 HANDLE ProcessHandle;
 
+extern VOID (WINAPI* TrueGetSystemTimeAsFileTime)(LPFILETIME lpSystemTimeAsFileTime);
+extern BOOL(WINAPI* TrueWriteFile)(
+	HANDLE hFile,
+	LPCVOID lpBuffer,
+	DWORD nNumberOfBytesToWrite,
+	LPDWORD lpNumberOfBytesWritten,
+	LPOVERLAPPED lpOverlapped
+	);
+
 // OEP hook for VC++
 void WINAPI GetSystemTimeAsFileTimeHook(LPFILETIME lpSystemTimeAsFileTime)
 {
-	MessageBox(NULL, TEXT("Hooked GetSystemTimeAsFile"), TEXT("pedump"), MB_OK);
+	// MessageBox(NULL, TEXT("Hooked GetSystemTimeAsFile"), TEXT("pedump"), MB_OK);
 	cmd();
+	TrueGetSystemTimeAsFileTime(lpSystemTimeAsFileTime);
 }
 
+
+BOOL WINAPI WriteFileHook(
+	HANDLE hFile,
+	LPCVOID lpBuffer,
+	DWORD nNumberOfBytesToWrite,
+	LPDWORD lpNumberOfBytesWritten,
+	LPOVERLAPPED lpOverlapped
+)
+{
+	if (strstr((char*)lpBuffer, "000-000-000"))
+	{
+		MessageBoxA(NULL, (char*)lpBuffer, "Hooked WriteFile", MB_OK);
+		cmd();
+	}
+	return TrueWriteFile(hFile, lpBuffer, nNumberOfBytesToWrite, lpNumberOfBytesWritten, lpOverlapped);
+}
 
 void dumpMemory(long long addr, size_t bytesToRead)
 {
@@ -153,6 +179,7 @@ extern "C" __declspec(dllexport) void cmd()
 		cout << "2 - Dump Memory" << endl;
 		cout << "3 - Dump Module" << endl;
 		cout << "4 - Dump Executable and fix IAT" << endl;
+		cout << "5 - Scylla GUI" << endl;
 		cout << "-1 - Exit Process" << endl;
 
 		int command;
@@ -189,31 +216,40 @@ extern "C" __declspec(dllexport) void cmd()
 			dumpModule();
 			break;
 		case 4:
-			// Fix OEP later
-			if (!ScyllaDumpCurrentProcessW(0, (DWORD_PTR)GetModuleHandleA((LPCSTR)0), 0, L"dump.exe"))
 			{
-				cout << "Can not dump module" << endl;
-			}
-			cout << "Dumped module" << endl;
+				// Fix OEP later
+				cout << "Module Name:" << endl;
+				CHAR modName[FILENAME_MAX];
+				cin >> modName;
+				
+				DWORD_PTR imagebase = (DWORD_PTR)GetModuleHandleA(modName);
+				cout << "Image base " << hex << imagebase << endl;
+				if (!ScyllaDumpCurrentProcessW(0, imagebase, 0, L"dump"))
+				{
+					cout << "Can not dump module" << endl;
+				}
+				cout << "Dumped module" << endl;
 
-			{
 				DWORD_PTR iatStart = 0;
 				DWORD iatSize = 0;
-
+				
 				cout << "PID:" << GetCurrentProcessId() << endl;
-
+				
 				// Scan from base
 				int error = ScyllaIatSearch(GetCurrentProcessId(), &iatStart, &iatSize,
-				                            (DWORD_PTR)GetModuleHandleA((LPCSTR)0), TRUE);
+				                            imagebase, TRUE);
 				cout << "IAT search error: " << error << endl;
 				cout << "IAT Start: " << iatStart << endl;
 				cout << "IAT Size: " << iatSize << endl;
-
+				
 				error = ScyllaIatFixAutoW(iatStart, iatSize, GetCurrentProcessId(), L"dump.exe", L"dump.scy.exe");
 				cout << "Dump fix error: " << error << endl;
 				cout << "Fix completed" << endl;
 			}
 
+			break;
+		case 5:
+			ScyllaStartGui(GetCurrentProcessId(), GetModuleHandle(NULL));
 			break;
 		default:
 			cout << "Invalid command:" << endl;
@@ -221,4 +257,3 @@ extern "C" __declspec(dllexport) void cmd()
 		}
 	}
 }
-		
